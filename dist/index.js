@@ -614,6 +614,124 @@ exports.execWithOutput = execWithOutput;
 
 /***/ }),
 
+/***/ 2772:
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.Vm = void 0;
+const core = __importStar(__webpack_require__(2186));
+const exec = __importStar(__webpack_require__(1514));
+const child_process_1 = __webpack_require__(3129);
+const wait_1 = __webpack_require__(5817);
+class Vm {
+    init() {
+        return __awaiter(this, void 0, void 0, function* () {
+            core.info('Initializing VM');
+        });
+    }
+    run() {
+        return __awaiter(this, void 0, void 0, function* () {
+            core.info('Booting VM');
+            this.vmProcess = child_process_1.spawn('sudo', this.command, { detached: true });
+            this.ipAddress = yield this.getIpAddress();
+        });
+    }
+    wait(timeout) {
+        return __awaiter(this, void 0, void 0, function* () {
+            for (let index = 0; index < timeout; index++) {
+                core.info('Waiting for VM to be ready...');
+                const result = yield this.execute('true', {
+                    /*log: false,
+                      silent: true,*/
+                    ignoreReturnCode: true
+                });
+                if (result === 0) {
+                    core.info('VM is ready');
+                    return;
+                }
+                yield wait_1.wait(1000);
+            }
+            throw Error(`Waiting for VM to become ready timed out after ${timeout} seconds`);
+        });
+    }
+    stop() {
+        return __awaiter(this, void 0, void 0, function* () {
+            core.info('Shuting down VM');
+            yield this.shutdown();
+        });
+    }
+    terminate() {
+        return __awaiter(this, void 0, void 0, function* () {
+            core.info('Terminating VM');
+            return yield exec.exec('sudo', ['kill', '-s', 'TERM', this.vmProcess.pid.toString()], { ignoreReturnCode: true });
+        });
+    }
+    shutdown() {
+        return __awaiter(this, void 0, void 0, function* () {
+            throw Error('Not implemented');
+        });
+    }
+    execute(command, options = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const defaultOptions = { log: true };
+            options = Object.assign(Object.assign({}, defaultOptions), options);
+            if (options.log)
+                core.info(`Executing command inside VM: ${command}`);
+            const buffer = Buffer.from(command);
+            return yield exec.exec('ssh', ['-t', `${Vm.user}@${this.ipAddress}`], {
+                input: buffer,
+                silent: options.silent,
+                ignoreReturnCode: options.ignoreReturnCode
+            });
+        });
+    }
+    execute2(args, intput) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield exec.exec('ssh', ['-t', `${Vm.user}@${this.ipAddress}`].concat(args), { input: intput });
+        });
+    }
+    getIpAddress() {
+        return __awaiter(this, void 0, void 0, function* () {
+            throw Error('Not implemented');
+        });
+    }
+}
+exports.Vm = Vm;
+Vm.user = 'runner';
+//# sourceMappingURL=vm.js.map
+
+/***/ }),
+
 /***/ 5817:
 /***/ (function(__unused_webpack_module, exports) {
 
@@ -681,93 +799,40 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.OpenBsd = exports.FreeBsd = exports.extractIpAddress = exports.Vm = void 0;
 const core = __importStar(__webpack_require__(2186));
-const exec = __importStar(__webpack_require__(1514));
-const child_process_1 = __webpack_require__(3129);
 const wait_1 = __webpack_require__(5817);
 const utility_1 = __webpack_require__(2857);
-class Vm {
+const vm = __importStar(__webpack_require__(2772));
+class Vm extends vm.Vm {
     constructor(xhyvePath, options) {
+        super();
         this.xhyvePath = xhyvePath;
         this.options = options;
     }
-    init() {
+    /*override*/ init() {
+        const _super = Object.create(null, {
+            init: { get: () => super.init }
+        });
         return __awaiter(this, void 0, void 0, function* () {
-            core.info('Initializing VM');
+            _super.init.call(this);
             this.macAddress = yield this.getMacAddress();
         });
     }
-    run() {
+    getIpAddress() {
         return __awaiter(this, void 0, void 0, function* () {
-            core.info('Booting VM');
-            this.vmProcess = child_process_1.spawn('sudo', this.xhyveArgs, { detached: true });
-            this.ipAddress = yield getIpAddressFromArp(this.macAddress);
-        });
-    }
-    wait(timeout) {
-        return __awaiter(this, void 0, void 0, function* () {
-            for (let index = 0; index < timeout; index++) {
-                core.info('Waiting for VM to be ready...');
-                const result = yield this.execute('true', {
-                    /*log: false,
-                    silent: true,*/
-                    ignoreReturnCode: true
-                });
-                if (result === 0) {
-                    core.info('VM is ready');
-                    return;
-                }
-                yield wait_1.wait(1000);
-            }
-            throw Error(`Waiting for VM to become ready timed out after ${timeout} seconds`);
-        });
-    }
-    stop() {
-        return __awaiter(this, void 0, void 0, function* () {
-            core.info('Shuting down VM');
-            yield this.shutdown();
-        });
-    }
-    terminate() {
-        return __awaiter(this, void 0, void 0, function* () {
-            core.info('Terminating VM');
-            return yield exec.exec('sudo', ['kill', '-s', 'TERM', this.vmProcess.pid.toString()], { ignoreReturnCode: true });
-        });
-    }
-    shutdown() {
-        return __awaiter(this, void 0, void 0, function* () {
-            throw Error('Not implemented');
-        });
-    }
-    execute(command, options = {}) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const defaultOptions = { log: true };
-            options = Object.assign(Object.assign({}, defaultOptions), options);
-            if (options.log)
-                core.info(`Executing command inside VM: ${command}`);
-            const buffer = Buffer.from(command);
-            return yield exec.exec('ssh', ['-t', `${Vm.user}@${this.ipAddress}`], {
-                input: buffer,
-                silent: options.silent,
-                ignoreReturnCode: options.ignoreReturnCode
-            });
-        });
-    }
-    execute2(args, intput) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return yield exec.exec('ssh', ['-t', `${Vm.user}@${this.ipAddress}`].concat(args), { input: intput });
+            return getIpAddressFromArp(this.macAddress);
         });
     }
     getMacAddress() {
         return __awaiter(this, void 0, void 0, function* () {
             core.debug('Getting MAC address');
-            this.macAddress = (yield utility_1.execWithOutput('sudo', this.xhyveArgs.concat('-M'), { silent: true }))
+            this.macAddress = (yield utility_1.execWithOutput('sudo', this.command.concat('-M'), { silent: true }))
                 .trim()
                 .slice(5);
             core.debug(`Found MAC address: '${this.macAddress}'`);
             return this.macAddress;
         });
     }
-    get xhyveArgs() {
+    /*override*/ get command() {
         // prettier-ignore
         return [
             this.xhyvePath.toString(),
@@ -786,7 +851,6 @@ class Vm {
     }
 }
 exports.Vm = Vm;
-Vm.user = 'runner';
 function extractIpAddress(arpOutput, macAddress) {
     var _a;
     core.debug('Extracing IP address');
@@ -802,7 +866,7 @@ exports.extractIpAddress = extractIpAddress;
 class FreeBsd extends Vm {
     get xhyveArgs() {
         // prettier-ignore
-        return super.xhyveArgs.concat('-f', `fbsd,${this.options.userboot},${this.options.diskImage},`);
+        return super.command.concat('-f', `fbsd,${this.options.userboot},${this.options.diskImage},`);
     }
     shutdown() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -817,7 +881,7 @@ exports.FreeBsd = FreeBsd;
 class OpenBsd extends Vm {
     get xhyveArgs() {
         // prettier-ignore
-        return super.xhyveArgs.concat('-l', `bootrom,${this.options.firmware}`, '-w');
+        return super.command.concat('-l', `bootrom,${this.options.firmware}`, '-w');
     }
     shutdown() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -8976,16 +9040,14 @@ function bytesToUuid(buf, offset) {
   var i = offset || 0;
   var bth = byteToHex;
   // join used to fix memory issue caused by concatenation: https://bugs.chromium.org/p/v8/issues/detail?id=3175#c4
-  return ([
-    bth[buf[i++]], bth[buf[i++]],
-    bth[buf[i++]], bth[buf[i++]], '-',
-    bth[buf[i++]], bth[buf[i++]], '-',
-    bth[buf[i++]], bth[buf[i++]], '-',
-    bth[buf[i++]], bth[buf[i++]], '-',
-    bth[buf[i++]], bth[buf[i++]],
-    bth[buf[i++]], bth[buf[i++]],
-    bth[buf[i++]], bth[buf[i++]]
-  ]).join('');
+  return ([bth[buf[i++]], bth[buf[i++]], 
+	bth[buf[i++]], bth[buf[i++]], '-',
+	bth[buf[i++]], bth[buf[i++]], '-',
+	bth[buf[i++]], bth[buf[i++]], '-',
+	bth[buf[i++]], bth[buf[i++]], '-',
+	bth[buf[i++]], bth[buf[i++]],
+	bth[buf[i++]], bth[buf[i++]],
+	bth[buf[i++]], bth[buf[i++]]]).join('');
 }
 
 module.exports = bytesToUuid;

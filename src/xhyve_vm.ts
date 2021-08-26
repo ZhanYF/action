@@ -1,9 +1,8 @@
 import * as core from '@actions/core'
-import * as exec from '@actions/exec'
 import * as fs from 'fs'
-import {spawn, ChildProcess} from 'child_process'
 import {wait} from './wait'
-import {execWithOutput, ExecuteOptions} from './utility'
+import {execWithOutput} from './utility'
+import * as vm from './vm'
 
 export interface Options {
   memory: string
@@ -15,100 +14,31 @@ export interface Options {
   firmware: fs.PathLike
 }
 
-export abstract class Vm {
+export abstract class Vm extends vm.Vm {
   macAddress!: string
-  ipAddress!: string
 
   protected options: Options
-
-  private static readonly user = 'runner'
   private xhyvePath: fs.PathLike
-  private vmProcess!: ChildProcess
 
   constructor(xhyvePath: fs.PathLike, options: Options) {
+    super()
     this.xhyvePath = xhyvePath
     this.options = options
   }
 
-  async init(): Promise<void> {
-    core.info('Initializing VM')
+  /*override*/ async init(): Promise<void> {
+    super.init()
     this.macAddress = await this.getMacAddress()
   }
 
-  async run(): Promise<void> {
-    core.info('Booting VM')
-    this.vmProcess = spawn('sudo', this.xhyveArgs, {detached: true})
-    this.ipAddress = await getIpAddressFromArp(this.macAddress)
-  }
-
-  async wait(timeout: number): Promise<void> {
-    for (let index = 0; index < timeout; index++) {
-      core.info('Waiting for VM to be ready...')
-
-      const result = await this.execute('true', {
-        /*log: false,
-        silent: true,*/
-        ignoreReturnCode: true
-      })
-
-      if (result === 0) {
-        core.info('VM is ready')
-        return
-      }
-      await wait(1000)
-    }
-
-    throw Error(
-      `Waiting for VM to become ready timed out after ${timeout} seconds`
-    )
-  }
-
-  async stop(): Promise<void> {
-    core.info('Shuting down VM')
-    await this.shutdown()
-  }
-
-  async terminate(): Promise<number> {
-    core.info('Terminating VM')
-    return await exec.exec(
-      'sudo',
-      ['kill', '-s', 'TERM', this.vmProcess.pid.toString()],
-      {ignoreReturnCode: true}
-    )
-  }
-
-  protected async shutdown(): Promise<void> {
-    throw Error('Not implemented')
-  }
-
-  async execute(
-    command: string,
-    options: ExecuteOptions = {}
-  ): Promise<number> {
-    const defaultOptions = {log: true}
-    options = {...defaultOptions, ...options}
-    if (options.log) core.info(`Executing command inside VM: ${command}`)
-    const buffer = Buffer.from(command)
-
-    return await exec.exec('ssh', ['-t', `${Vm.user}@${this.ipAddress}`], {
-      input: buffer,
-      silent: options.silent,
-      ignoreReturnCode: options.ignoreReturnCode
-    })
-  }
-
-  async execute2(args: string[], intput: Buffer): Promise<number> {
-    return await exec.exec(
-      'ssh',
-      ['-t', `${Vm.user}@${this.ipAddress}`].concat(args),
-      {input: intput}
-    )
+  protected async /*override*/ getIpAddress(): Promise<string> {
+    return getIpAddressFromArp(this.macAddress)
   }
 
   async getMacAddress(): Promise<string> {
     core.debug('Getting MAC address')
     this.macAddress = (
-      await execWithOutput('sudo', this.xhyveArgs.concat('-M'), {silent: true})
+      await execWithOutput('sudo', this.command.concat('-M'), {silent: true})
     )
       .trim()
       .slice(5)
@@ -116,7 +46,7 @@ export abstract class Vm {
     return this.macAddress
   }
 
-  get xhyveArgs(): string[] {
+  /*override*/ get command(): string[] {
     // prettier-ignore
     return [
         this.xhyvePath.toString(),
@@ -155,9 +85,9 @@ export function extractIpAddress(
 }
 
 export class FreeBsd extends Vm {
-  get xhyveArgs(): string[] {
+  get command(): string[] {
     // prettier-ignore
-    return super.xhyveArgs.concat(
+    return super.command.concat(
       '-f', `fbsd,${this.options.userboot},${this.options.diskImage},`
     )
   }
@@ -172,9 +102,9 @@ export class FreeBsd extends Vm {
 }
 
 export class OpenBsd extends Vm {
-  get xhyveArgs(): string[] {
+  get command(): string[] {
     // prettier-ignore
-    return super.xhyveArgs.concat(
+    return super.command.concat(
       '-l', `bootrom,${this.options.firmware}`,
       '-w'
     )
