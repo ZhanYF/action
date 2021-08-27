@@ -5,15 +5,18 @@ import * as core from '@actions/core'
 import * as exec from '@actions/exec'
 
 import * as xhyve from './xhyve_vm'
+import * as qemu from './qemu_vm'
 
 export enum Kind {
   freeBsd,
+  netBsd,
   openBsd
 }
 
 const stringToKind: ReadonlyMap<string, Kind> = (() => {
   const map = new Map<string, Kind>()
   map.set('freebsd', Kind.freeBsd)
+  map.set('netbsd', Kind.netBsd)
   map.set('openbsd', Kind.openBsd)
   return map
 })()
@@ -69,6 +72,8 @@ export abstract class OperatingSystem {
     switch (kind) {
       case Kind.freeBsd:
         return new FreeBsd(architecture, version)
+      case  Kind.netBsd:
+        return new NetBsd(architecture, version)
       case Kind.openBsd:
         return new OpenBsd(architecture, version)
     }
@@ -121,11 +126,33 @@ class FreeBsd extends OperatingSystem {
   }
 
   createVirtualMachine(
-    xhyvePath: fs.PathLike,
+    hypervisorPath: fs.PathLike,
     options: xhyve.Options
   ): xhyve.Vm {
     core.debug('Creating FreeBSD VM')
-    return new xhyve.FreeBsd(xhyvePath, options)
+    return new xhyve.FreeBsd(hypervisorPath, options)
+  }
+}
+
+class NetBsd extends OperatingSystem {
+  constructor(architecture: Architecture, version: string) {
+    super('netbsd', architecture, version)
+  }
+
+  async prepareDisk(
+    diskImage: fs.PathLike,
+    targetDiskName: fs.PathLike,
+    resourcesDirectory: fs.PathLike
+  ): Promise<void> {
+    await convertToRawDisk(diskImage, targetDiskName, resourcesDirectory)
+  }
+
+  createVirtualMachine(
+    hypervisorPath: fs.PathLike,
+    options: xhyve.Options
+  ): xhyve.Vm {
+    core.debug('Creating NetBSD VM')
+    return new qemu.NetBsd(hypervisorPath, options)
   }
 }
 
@@ -143,11 +170,11 @@ class OpenBsd extends OperatingSystem {
   }
 
   createVirtualMachine(
-    xhyvePath: fs.PathLike,
+    hypervisorPath: fs.PathLike,
     options: xhyve.Options
   ): xhyve.Vm {
     core.debug('Creating OpenBSD VM')
-    return new xhyve.OpenBsd(xhyvePath, options)
+    return new xhyve.OpenBsd(hypervisorPath, options)
   }
 }
 
