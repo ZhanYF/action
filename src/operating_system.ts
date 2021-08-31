@@ -4,6 +4,7 @@ import * as path from 'path'
 import * as core from '@actions/core'
 import * as exec from '@actions/exec'
 
+import * as architecture from './architecture'
 import * as xhyve from './xhyve_vm'
 import * as qemu from './qemu_vm'
 
@@ -25,40 +26,21 @@ export function toKind(value: string): Kind | undefined {
   return stringToKind.get(value.toLowerCase())
 }
 
-export enum Architecture {
-  arm64,
-  x86_64
-}
-
-const stringToArchitecture: ReadonlyMap<string, Architecture> = (() => {
-  const map = new Map<string, Architecture>()
-  map.set('arm64', Architecture.arm64)
-  map.set('x86-64', Architecture.x86_64)
-  return map
-})()
-
-export function toArchitecture(value: string): Architecture | undefined {
-  return stringToArchitecture.get(value.toLowerCase())
-}
-
-export function toString(architecture: Architecture): string {
-  for (const [key, value] of stringToArchitecture) {
-    if (value === architecture) return key
-  }
-
-  throw Error(
-    `Unreachable: missing Architecture.${architecture} in 'stringToArchitecture'`
-  )
-}
-
 export abstract class OperatingSystem {
+  protected readonly architecture: architecture.Architecture
+  protected readonly xhyveResourceUrl =
+    'https://github.com/cross-platform-actions/resources/releases/download/v0.0.1/resources.tar'
+
   private readonly baseUrl = 'https://github.com/cross-platform-actions'
   private readonly releaseVersion = 'v0.0.1'
   private readonly name: string
-  private readonly architecture: Architecture
   private readonly version: string
 
-  constructor(name: string, architecture: Architecture, version: string) {
+  constructor(
+    name: string,
+    architecture: architecture.Architecture,
+    version: string
+  ) {
     this.name = name
     this.version = version
     this.architecture = architecture
@@ -66,18 +48,22 @@ export abstract class OperatingSystem {
 
   static create(
     kind: Kind,
-    architecture: Architecture,
+    architectureKind: architecture.Kind,
     version: string
   ): OperatingSystem {
+    let architecture = new architecture.Architecture(architectureKind)
+
     switch (kind) {
       case Kind.freeBsd:
         return new FreeBsd(architecture, version)
-      case  Kind.netBsd:
+      case Kind.netBsd:
         return new NetBsd(architecture, version)
       case Kind.openBsd:
         return new OpenBsd(architecture, version)
     }
   }
+
+  abstract get resourceUrl(): string
 
   get virtualMachineImageUrl(): string {
     return [
@@ -107,14 +93,18 @@ export abstract class OperatingSystem {
 
   private get imageName(): string {
     const encodedVersion = encodeURIComponent(this.version)
-    const archString = toString(this.architecture)
+    const archString = this.architecture.toString()
     return `${this.name}-${encodedVersion}-${archString}.qcow2`
   }
 }
 
 class FreeBsd extends OperatingSystem {
-  constructor(architecture: Architecture, version: string) {
+  constructor(architecture: architecture.Architecture, version: string) {
     super('freebsd', architecture, version)
+  }
+
+  get resourceUrl(): string {
+    return this.xhyveResourceUrl
   }
 
   async prepareDisk(
@@ -135,8 +125,12 @@ class FreeBsd extends OperatingSystem {
 }
 
 class NetBsd extends OperatingSystem {
-  constructor(architecture: Architecture, version: string) {
+  constructor(architecture: architecture.Architecture, version: string) {
     super('netbsd', architecture, version)
+  }
+
+  get resourceUrl(): string {
+    throw Error('Not implemented')
   }
 
   async prepareDisk(
@@ -152,13 +146,18 @@ class NetBsd extends OperatingSystem {
     options: xhyve.Options
   ): xhyve.Vm {
     core.debug('Creating NetBSD VM')
-    return new qemu.NetBsd(hypervisorPath, options)
+    throw Error('Not implemented')
+    // return new qemu.NetBsd(hypervisorPath, options)
   }
 }
 
 class OpenBsd extends OperatingSystem {
-  constructor(architecture: Architecture, version: string) {
+  constructor(architecture: architecture.Architecture, version: string) {
     super('openbsd', architecture, version)
+  }
+
+  get resourceUrl(): string {
+    return this.xhyveResourceUrl
   }
 
   async prepareDisk(

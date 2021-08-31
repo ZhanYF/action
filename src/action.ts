@@ -14,9 +14,6 @@ import {execWithOutput} from './utility'
 import {env} from 'process'
 
 export default class Action {
-  private readonly resourceUrl =
-    'https://github.com/cross-platform-actions/resources/releases/download/v0.0.1/resources.tar'
-
   private readonly workDirectory = '/Users/runner/work'
   private readonly input = new Input()
 
