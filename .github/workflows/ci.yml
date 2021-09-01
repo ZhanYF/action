@@ -21,8 +21,8 @@ jobs:
     strategy:
       matrix:
         os:
-          - name: freebsd
-            version: 12.2
+          # - name: freebsd
+          #   version: 12.2
           - name: openbsd
             version: 6.9
 

@@ -50,7 +50,7 @@ export function toString(architecture: Architecture): string {
 
 export abstract class OperatingSystem {
   private readonly baseUrl = 'https://github.com/cross-platform-actions'
-  private readonly releaseVersion = 'v0.0.1'
+  private readonly releaseVersion = 'v6.9'
   private readonly name: string
   private readonly architecture: Architecture
   private readonly version: string
