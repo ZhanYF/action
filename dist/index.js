@@ -472,7 +472,7 @@ exports.toString = toString;
 class OperatingSystem {
     constructor(name, architecture, version) {
         this.baseUrl = 'https://github.com/cross-platform-actions';
-        this.releaseVersion = 'v0.0.1';
+        this.releaseVersion = 'v6.9';
         this.name = name;
         this.version = version;
         this.architecture = architecture;
