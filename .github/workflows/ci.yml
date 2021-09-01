@@ -24,7 +24,7 @@ jobs:
           - name: freebsd
             version: 12.2
           - name: openbsd
-            version: 6.8
+            version: 6.9
 
     steps:
       - name: Checkout
